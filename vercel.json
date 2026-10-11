@@ -1,5 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }],
+  "routes": [{ "src": "/(.*)", "dest": "/api/index.py" }],
   "crons": [{ "path": "/api/v1/cron/overdue", "schedule": "0 2 * * *" }]
 }
