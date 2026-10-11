@@ -1,6 +1,8 @@
+import hmac
 import time
 
 from django.db import connection
+from django.conf import settings
 from django.http import JsonResponse
 from drf_spectacular.utils import extend_schema
 from rest_framework.permissions import AllowAny
@@ -28,6 +30,23 @@ class HealthView(APIView):
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
         return success("Service is healthy", {"status": "ok", "uptime": time.time() - STARTED_AT})
+
+
+class CronOverdueView(APIView):
+    """Run the overdue check on demand; called by Vercel Cron (which sends `Authorization: Bearer $CRON_SECRET`)."""
+
+    authentication_classes: list = []
+    permission_classes = [AllowAny]
+
+    @extend_schema(exclude=True)
+    def get(self, request):
+        secret = settings.CRON_SECRET
+        if not secret or not hmac.compare_digest(request.headers.get("Authorization", ""), f"Bearer {secret}"):
+            return JsonResponse(error_body("Unauthorized"), status=401)
+        from service_requests.overdue import run_overdue_check
+
+        result = run_overdue_check()
+        return success("Overdue check complete", {"marked": result.marked, "cleared": result.cleared, "durationMs": result.duration_ms})
 
 
 def api_not_found(request, *args, **kwargs):

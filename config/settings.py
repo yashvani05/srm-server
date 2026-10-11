@@ -1,4 +1,5 @@
 import os
+import ssl
 import sys
 from pathlib import Path
 
@@ -32,7 +33,7 @@ if not SECRET_KEY:
     else:
         raise ImproperlyConfigured("DJANGO_SECRET_KEY must be set when DJANGO_DEBUG is false.")
 
-ALLOWED_HOSTS = [h.strip() for h in env("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,.trycloudflare.com").split(",") if h.strip()]
+ALLOWED_HOSTS = [h.strip() for h in env("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,.trycloudflare.com,.vercel.app").split(",") if h.strip()]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -97,6 +98,11 @@ else:
             "CONN_MAX_AGE": 60,
         }
     }
+    if env("DB_PORT", "5432") == "6543":
+        # Supabase transaction pooler (pgbouncer): no prepared statements, no server-side cursors, no persistent connections.
+        DATABASES["default"]["CONN_MAX_AGE"] = 0
+        DATABASES["default"]["DISABLE_SERVER_SIDE_CURSORS"] = True
+        DATABASES["default"]["OPTIONS"] = {"prepare_threshold": None}
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 AUTH_USER_MODEL = "accounts.User"
@@ -180,9 +186,12 @@ SPECTACULAR_SETTINGS = {
     ],
 }
 
+CRON_SECRET = env("CRON_SECRET")
 OVERDUE_CHECK_INTERVAL_SECONDS = env_int("OVERDUE_CHECK_INTERVAL_SECONDS", 60)
 
 CELERY_BROKER_URL = f"{REDIS_URL}/2"
+if REDIS_URL.startswith("rediss://"):
+    CELERY_BROKER_USE_SSL = {"ssl_cert_reqs": ssl.CERT_REQUIRED}
 CELERY_TASK_IGNORE_RESULT = True
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_TIMEZONE = "UTC"
