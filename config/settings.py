@@ -1,4 +1,5 @@
 import os
+import re
 import ssl
 import sys
 from pathlib import Path
@@ -12,7 +13,10 @@ load_dotenv(BASE_DIR / ".env")
 
 
 def env(name: str, default: str | None = None) -> str | None:
-    return os.environ.get(name, default)
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().strip("\"'").strip()
 
 
 def env_bool(name: str, default: bool = False) -> bool:
@@ -108,7 +112,11 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "accounts.User"
 AUTH_PASSWORD_VALIDATORS = []
 
-REDIS_URL = env("REDIS_URL", "redis://localhost:6379").rstrip("/")
+REDIS_URL = env("REDIS_URL", "redis://localhost:6379")
+_match = re.search(r"rediss?://\S+", REDIS_URL)  # tolerate a pasted `redis-cli --tls -u <url>`
+REDIS_URL = (_match.group(0) if _match else REDIS_URL).rstrip("/")
+if REDIS_URL.startswith("redis://") and ".upstash.io" in REDIS_URL:
+    REDIS_URL = "rediss://" + REDIS_URL[len("redis://"):]  # Upstash only accepts TLS
 
 if TESTING:
     CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
@@ -146,7 +154,7 @@ REST_FRAMEWORK = {
     "UNAUTHENTICATED_USER": None,
 }
 
-CORS_ALLOWED_ORIGINS = [o.strip() for o in env("CORS_ORIGIN", "http://localhost:5173").split(",") if o.strip()]
+CORS_ALLOWED_ORIGINS = [o.strip().rstrip("/") for o in env("CORS_ORIGIN", "http://localhost:5173").split(",") if o.strip()]
 
 SWAGGER_USER = env("SWAGGER_USER", "apidocs")
 SWAGGER_PASS = env("SWAGGER_PASS")
