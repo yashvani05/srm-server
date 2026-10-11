@@ -3,9 +3,10 @@ from django.urls import include, path, re_path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from core.docs_auth import basic_auth_required
-from core.views import api_not_found
+from core.views import api_not_found, root
 
 urlpatterns = [
+    path("", root),
     path("admin/", admin.site.urls),
     path("api/v1/", include("core.urls")),
     path("api/v1/", include("accounts.urls")),

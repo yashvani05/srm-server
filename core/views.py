@@ -49,6 +49,10 @@ class CronOverdueView(APIView):
         return success("Overdue check complete", {"marked": result.marked, "cleared": result.cleared, "durationMs": result.duration_ms})
 
 
+def root(request):
+    return JsonResponse({"success": True, "message": "Service Request Management API", "data": {"health": "/api/v1/health", "docs": "/api-docs/"}})
+
+
 def api_not_found(request, *args, **kwargs):
     return JsonResponse(error_body(f"Route not found: {request.method} {request.get_full_path()}"), status=404)
 
