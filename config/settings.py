@@ -117,6 +117,8 @@ _match = re.search(r"rediss?://\S+", REDIS_URL)  # tolerate a pasted `redis-cli 
 REDIS_URL = (_match.group(0) if _match else REDIS_URL).rstrip("/")
 if REDIS_URL.startswith("redis://") and ".upstash.io" in REDIS_URL:
     REDIS_URL = "rediss://" + REDIS_URL[len("redis://"):]  # Upstash only accepts TLS
+# Upstash only has database 0, so the cache and the Celery broker share it; their keys are prefixed differently.
+REDIS_CACHE_DB, REDIS_BROKER_DB = (0, 0) if ".upstash.io" in REDIS_URL else (1, 2)
 
 if TESTING:
     CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
@@ -124,7 +126,7 @@ else:
     CACHES = {
         "default": {
             "BACKEND": "django_redis.cache.RedisCache",
-            "LOCATION": f"{REDIS_URL}/1",
+            "LOCATION": f"{REDIS_URL}/{REDIS_CACHE_DB}",
             "KEY_PREFIX": "srmdj",
             "KEY_FUNCTION": "core.cache.make_key",
             "OPTIONS": {
@@ -197,7 +199,7 @@ SPECTACULAR_SETTINGS = {
 CRON_SECRET = env("CRON_SECRET")
 OVERDUE_CHECK_INTERVAL_SECONDS = env_int("OVERDUE_CHECK_INTERVAL_SECONDS", 60)
 
-CELERY_BROKER_URL = f"{REDIS_URL}/2"
+CELERY_BROKER_URL = f"{REDIS_URL}/{REDIS_BROKER_DB}"
 if REDIS_URL.startswith("rediss://"):
     CELERY_BROKER_USE_SSL = {"ssl_cert_reqs": ssl.CERT_REQUIRED}
 CELERY_TASK_IGNORE_RESULT = True
