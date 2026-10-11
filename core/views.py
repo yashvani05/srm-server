@@ -3,6 +3,7 @@ import time
 
 from django.db import connection
 from django.conf import settings
+from django.core.cache import cache
 from django.http import JsonResponse
 from drf_spectacular.utils import extend_schema
 from rest_framework.permissions import AllowAny
@@ -17,6 +18,7 @@ STARTED_AT = time.time()
 
 class HealthSerializer(serializers.Serializer):
     status = serializers.CharField()
+    cache = serializers.CharField(help_text="Redis cache status")
     uptime = serializers.FloatField(help_text="Seconds since the process started")
 
 
@@ -29,7 +31,12 @@ class HealthView(APIView):
     def get(self, request):
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
-        return success("Service is healthy", {"status": "ok", "uptime": time.time() - STARTED_AT})
+        try:
+            cache.set("health:ping", 1, timeout=10)
+            cache_status = "ok"
+        except Exception as exc:
+            cache_status = f"error: {type(exc).__name__}"
+        return success("Service is healthy", {"status": "ok", "cache": cache_status, "uptime": time.time() - STARTED_AT})
 
 
 class CronOverdueView(APIView):
